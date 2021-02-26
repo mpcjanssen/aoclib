@@ -20,14 +20,13 @@ int objc;                    /* Count of number of arguments to this
 				  * procedure. */
 Tcl_Obj *CONST objv[];       /* Argument value objects. */
 {
+    int objcount = 0;
     if (objc != 3 && objc != 2)
     {
         Tcl_WrongNumArgs(interp, 1, objv, "string ?cmdprefix?");
         return TCL_ERROR;
     }
     Tcl_Obj *result;
-    Tcl_DString dresult; 
-    Tcl_DStringInit(&dresult);
     pcre2_code *re = (pcre2_code *)cdata;
     pcre2_match_data *match_data = pcre2_match_data_create_from_pattern(re, NULL);
     char *subject;
@@ -70,20 +69,19 @@ Tcl_Obj *CONST objv[];       /* Argument value objects. */
             {
                 PCRE2_UCHAR buffer[256];
             case PCRE2_ERROR_NOMATCH:
-                if (cmdPrefix==NULL) {
+                fprintf(stderr, "Tcl Obj count %d\n", objcount);
+               
                     Tcl_SetObjResult(interp, result);
-                } else {
-                    Tcl_DStringResult(interp, &dresult);
-                }
+
                 pcre2_match_data_free(match_data);
-                Tcl_DStringFree(&dresult);
+
                 return TCL_OK;
                 /*
     Handle other special cases if you like
     */
             default:
                 pcre2_match_data_free(match_data);
-                Tcl_DStringFree(&dresult);
+
                 pcre2_get_error_message(rc, buffer, sizeof(buffer));
                 Tcl_SetObjResult(interp, Tcl_ObjPrintf("PCRE2 matching error %s", buffer));
                 return TCL_ERROR;
@@ -94,12 +92,13 @@ Tcl_Obj *CONST objv[];       /* Argument value objects. */
         Tcl_Obj *matchObj = Tcl_NewListObj(0, NULL);
         for (int i = 0; i < rc; i++)
         {
+            objcount++;
             PCRE2_SPTR substring_start = subject + ovector[2 * i];
             PCRE2_SIZE substring_length = ovector[2 * i + 1] - ovector[2 * i];
             if (Tcl_ListObjAppendElement(interp, matchObj, Tcl_NewStringObj(substring_start, substring_length)) != TCL_OK)
             {
                 pcre2_match_data_free(match_data);
-                Tcl_DStringFree(&dresult);
+
                 return TCL_ERROR;
             };
 
@@ -108,25 +107,24 @@ Tcl_Obj *CONST objv[];       /* Argument value objects. */
         if (cmdPrefix == NULL) {
             Tcl_ListObjAppendElement(interp, result, matchObj);
         } else {
+            objcount++;
             Tcl_Obj * cmd = Tcl_NewListObj(0,NULL);
             Tcl_IncrRefCount(cmd);
             if (Tcl_ListObjAppendList(interp, cmd, cmdPrefix) != TCL_OK) {
                 pcre2_match_data_free(match_data);
-                Tcl_DStringFree(&dresult);
+
                 return TCL_ERROR;
             }
             Tcl_ListObjAppendList(interp, cmd, matchObj);
-             if (Tcl_EvalObjEx(interp, cmd, TCL_EVAL_DIRECT)!=TCL_OK) {
+             if (Tcl_EvalObjEx(interp, cmd, TCL_EVAL_GLOBAL )!=TCL_OK) {
                 pcre2_match_data_free(match_data);
-                Tcl_DStringFree(&dresult);
                 return TCL_ERROR;
              }
-             Tcl_DStringAppend(&dresult,  Tcl_GetStringResult(interp),-1) ;
+             Tcl_ListObjAppendList(interp, result,  Tcl_GetObjResult(interp)) ;
              Tcl_DecrRefCount(cmd);
         }
     }
     pcre2_match_data_free(match_data);
-    Tcl_DStringFree(&dresult);
     return TCL_ERROR;
 }
 
