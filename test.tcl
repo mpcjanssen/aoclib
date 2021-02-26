@@ -1,7 +1,7 @@
 load build/libaoclib.so
 
-proc encode {m _} {
-    return "[string length $m][string index $m 0]"
+proc encode {m c} {
+    return "[string length $m]$c"
 }
 
 set re [pcre2 {(.)\1*}]
@@ -10,7 +10,7 @@ set re [pcre2 {(.)\1*}]
 
 
 set s 1321131112
-for {set i 0} {$i  < 40} {incr i} {
+for {set i 0} {$i  < 45} {incr i} {
     set s [$re $s encode]
 }
 
